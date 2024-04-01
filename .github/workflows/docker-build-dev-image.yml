@@ -1,54 +1,51 @@
-#  This job builds the dotCMS dev image: dotcms/dotcms-dev:master_latest_SNAPSHOT
-#  every night.  For more information about this docker image, see
-#  https://github.com/dotCMS/core/tree/master/docker/dev-env
-
-name: Build/Push dotCMS Dev Image (nightly)
-on:
-  schedule:
-    - cron: "18 2 * * *"
-
 jobs:
   docker:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4
-      -
-        uses: ./.github/actions/cleanup-runner
-      -
-        name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          # list of Docker images to use as base name for tags
-          images: |
-            dotcms/dotcms-dev
-          # generate Docker tags based on the following events/attributes
-          tags: |
-            type=sha,enable=true,priority=100,prefix=master_,suffix=_SNAPSHOT,format=short
-            type=raw,value=master_latest_SNAPSHOT
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      -
-        name: Login to Docker Hubdocker-build-master-branch.yml
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - 
-        name: Build and push
-        uses: docker/build-push-action@v4
-        with:
-          push: true
-          context: docker/dev-env
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          pull: true
-          no-cache: true
-          build-args: |
-            DOTCMS_DOCKER_TAG=master_latest_SNAPSHOT
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      uses: ./.github/actions/cleanup-runner
+    - continue-on-error: true
+      id: meta
+      name: Docker meta
+      uses: docker/metadata-action@v4
+      with:
+        images: 'dotcms/dotcms-dev
+
+          '
+        tags: 'type=sha,enable=true,priority=100,prefix=master_,suffix=_SNAPSHOT,format=short
+
+          type=raw,value=master_latest_SNAPSHOT
+
+          '
+    - continue-on-error: true
+      name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - continue-on-error: true
+      name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    - continue-on-error: true
+      name: Login to Docker Hubdocker-build-master-branch.yml
+      uses: docker/login-action@v2
+      with:
+        password: ${{ secrets.DOCKER_TOKEN }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+    - continue-on-error: true
+      name: Build and push
+      uses: docker/build-push-action@v4
+      with:
+        build-args: 'DOTCMS_DOCKER_TAG=master_latest_SNAPSHOT
+
+          '
+        context: docker/dev-env
+        no-cache: true
+        platforms: linux/amd64,linux/arm64
+        pull: true
+        push: false
+        tags: ${{ steps.meta.outputs.tags }}
+name: Build/Push dotCMS Dev Image (nightly)
+on:
+  repository_dispatch:
+    types: trigger-ga___docker-build-dev-image.yml

@@ -1,52 +1,43 @@
-name: Build/Push dotCMS docker image
-on:
-  workflow_dispatch:
-    inputs:
-      multi_arch:
-        description: 'Build Multi-arch'
-        required: true
-        type: boolean
-        default: true
-      docker_registry:
-        description: 'Docker registry to push the image to'
-        required: false
-        type: choice
-        options:
-          - 'DOCKER.IO'
-          - 'GHCR.IO'
-          - 'BOTH'
-        default: 'DOCKER.IO'
 jobs:
-  prepare-build:
-    name: Prepare build
-    runs-on: ubuntu-latest
-    outputs:
-      ref: ${{ steps.set-common-vars.outputs.ref }}
-      docker_platforms: ${{ steps.set-common-vars.outputs.docker_platforms }}
-    steps:
-      - run: echo 'GitHub context'
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-
-      - name: Resolve Docker Platforms
-        id: set-common-vars
-        run: |
-          ref=$(basename ${{ github.event.ref }})
-          docker_platforms="${{ github.event.inputs.multi_arch == 'true' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}"
-          
-          echo "ref=${ref}" >> $GITHUB_OUTPUT
-          echo "docker_platforms=${docker_platforms}" >> $GITHUB_OUTPUT
-
   build_push_image:
     name: Build/Push Image
     needs: prepare-build
+    secrets:
+      docker_io_token: ${{ secrets.DOCKER_TOKEN }}
+      docker_io_username: ${{ secrets.DOCKER_USERNAME }}
+      ghcr_io_token: ${{ secrets.GHCR_TOKEN }}
+      ghcr_io_username: ${{ secrets.DOCKER_USERNAME }}
     uses: ./.github/workflows/maven-build-docker-image.yml
     with:
-      ref: ${{ needs.prepare-build.outputs.ref }}
       docker_platforms: ${{ needs.prepare-build.outputs.docker_platforms }}
       docker_registry: ${{ inputs.docker_registry }}
-    secrets:
-      docker_io_username: ${{ secrets.DOCKER_USERNAME }}
-      docker_io_token: ${{ secrets.DOCKER_TOKEN }}
-      ghcr_io_username: ${{ secrets.DOCKER_USERNAME }}
-      ghcr_io_token: ${{ secrets.GHCR_TOKEN }}
+      ref: ${{ needs.prepare-build.outputs.ref }}
+  prepare-build:
+    name: Prepare build
+    outputs:
+      docker_platforms: ${{ steps.set-common-vars.outputs.docker_platforms }}
+      ref: ${{ steps.set-common-vars.outputs.ref }}
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo 'GitHub context'
+    - continue-on-error: true
+      id: set-common-vars
+      name: Resolve Docker Platforms
+      run: 'ref=$(basename ${{ github.event.ref }})
+
+        docker_platforms="${{ github.event.inputs.multi_arch == ''true'' && ''linux/amd64,linux/arm64''
+        || ''linux/amd64'' }}"
+
+
+        echo "ref=${ref}" >> $GITHUB_OUTPUT
+
+        echo "docker_platforms=${docker_platforms}" >> $GITHUB_OUTPUT
+
+        '
+name: Build/Push dotCMS docker image
+on:
+  repository_dispatch:
+    types: trigger-ga___publish-dotcms-docker-image.yml

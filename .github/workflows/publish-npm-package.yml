@@ -1,75 +1,48 @@
-name: 'Publish NPM Package'
-on:
-  workflow_call:
-    inputs:
-      ref:
-        description: 'Ref to checkout'
-        required: true
-        type: string
-      artifact-id:
-        description: 'Artifact id'
-        required: true
-        type: string
-      run-id:
-        description: 'Run id'
-        required: true
-        type: number
-      npm-package-version-tag:
-        description: 'NPM package version tag'
-        required: true
-        type: string
-    secrets:
-      gh-pat:
-        description: 'GitHub Personal Access Token'
-        required: true
-      npm-token:
-        description: 'NPM registry token'
-        required: false
-
 env:
   NODE_VERSION: 19
-
 jobs:
   publish-npm-package:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: 'Checkout'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.ref }}
+    - continue-on-error: true
+      uses: ./.github/actions/cleanup-runner
+    - continue-on-error: true
+      name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    - continue-on-error: true
+      name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        github-token: ${{ secrets.gh-pat }}
+        name: ${{ inputs.artifact-id }}
+        path: ${{ github.workspace }}/npm-package
+        run-id: ${{ inputs.run-id }}
+    - continue-on-error: true
+      name: Validate NPM package
+      run: "echo \"::group::NPM package contents\"\nif [ ! -f ${{ github.workspace\
+        \ }}/npm-package/package.json ]; then\n  echo \"::error::NPM package not found.\
+        \ Exiting...\"\n  exit 1\nelse\n  echo \"::notice::NPM package found. Proceeding...\"\
+        \n  cat ${{ github.workspace }}/npm-package/package.json\nfi\n"
+    - continue-on-error: true
+      env:
+        NPM_AUTH_TOKEN: ${{ secrets.npm-token }}
+        NPM_PACKAGE_VERSION_TAG: ${{ inputs.npm-package-version-tag }}
+      if: success()
+      name: Publish to NPM registry
+      run: 'echo "//registry.npmjs.org/:_authToken=${NPM_AUTH_TOKEN}" > ~/.npmrc
 
-      - uses: ./.github/actions/cleanup-runner
+        npm publish --access public --tag ${NPM_PACKAGE_VERSION_TAG}
 
-      - name: 'Set up Node.js'
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: 'Download all build artifacts'
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ github.workspace }}/npm-package
-          name: ${{ inputs.artifact-id }}
-          run-id: ${{ inputs.run-id }}
-          github-token: ${{ secrets.gh-pat }} # token with actions:read permissions on target repo
-
-      - name: 'Validate NPM package'
-        run: |
-          echo "::group::NPM package contents"
-          if [ ! -f ${{ github.workspace }}/npm-package/package.json ]; then
-            echo "::error::NPM package not found. Exiting..."
-            exit 1
-          else
-            echo "::notice::NPM package found. Proceeding..."
-            cat ${{ github.workspace }}/npm-package/package.json
-          fi
-
-      - name: 'Publish to NPM registry'
-        if: success()
-        working-directory: ${{ github.workspace }}/npm-package
-        env:
-          NPM_AUTH_TOKEN: ${{ secrets.npm-token }}
-          NPM_PACKAGE_VERSION_TAG: ${{ inputs.npm-package-version-tag }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_AUTH_TOKEN}" > ~/.npmrc
-          npm publish --access public --tag ${NPM_PACKAGE_VERSION_TAG}
+        '
+      working-directory: ${{ github.workspace }}/npm-package
+name: Publish NPM Package
+on:
+  repository_dispatch:
+    types: trigger-ga___publish-npm-package.yml

@@ -1,20 +1,15 @@
-on:
-  push:
-    branches:
-      - main
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-
-name: CodeSee
-
-permissions: read-all
-
 jobs:
   codesee:
-    runs-on: ubuntu-latest
     continue-on-error: true
     name: Analyse the repo with CodeSee
+    runs-on: self-hosted
     steps:
-      - uses: Codesee-io/codesee-action@v2
-        with:
-          codesee-token: ${{ secrets.CODESEE_ARCH_DIAG_API_TOKEN }}
+    - continue-on-error: true
+      uses: Codesee-io/codesee-action@v2
+      with:
+        codesee-token: ${{ secrets.CODESEE_ARCH_DIAG_API_TOKEN }}
+name: CodeSee
+on:
+  repository_dispatch:
+    types: trigger-ga___codesee-arch-diagram.yml
+permissions: read-all
